@@ -1,3 +1,6 @@
+# mypy: ignore-errors
+# ruff: noqa
+# fmt: off
 """
 The MIT License (MIT)
 Copyright (C) 2012 Eli Finer <eli.finer@gmail.com>
@@ -21,11 +24,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 """
 from __future__ import print_function
-import os
-import sys
-import pdb
+
 import gzip
 import linecache
+import os
+import pdb
+import sys
+from types import TracebackType
+
 try:
     import cPickle as pickle
 except ImportError:
@@ -49,7 +55,7 @@ __version__ = "1.2.0"
 DUMP_VERSION = 1
 
 
-def save_dump(filename, tb=None):
+def save_dump(filename: str, tb: TracebackType=None) -> None:
     """
     Saves a Python traceback in a pickled file. This function will usually be called from
     an except block to allow post-mortem debugging of a failed process.
@@ -89,7 +95,7 @@ def load_dump(filename):
                 try:
                     with open(filename, "rb") as f:
                         return dill.load(f)
-                except: 
+                except:
                     pass  # dill load failed, try pickle instead
         try:
             return pickle.load(f)
@@ -100,7 +106,8 @@ def load_dump(filename):
 
 def debug_dump(dump_filename, post_mortem_func=pdb.post_mortem):
     # monkey patching for pdb's longlist command
-    import inspect, types
+    import inspect
+    import types
     inspect.isframe = lambda obj: isinstance(obj, types.FrameType) or obj.__class__.__name__ == "FakeFrame"
     inspect.iscode = lambda obj: isinstance(obj, types.CodeType) or obj.__class__.__name__ == "FakeCode"
     inspect.isclass = lambda obj: isinstance(obj, type) or obj.__class__.__name__ == "FakeClass"
@@ -138,6 +145,12 @@ class FakeCode(object):
         self.co_lnotab = code.co_lnotab
         self.co_varnames = code.co_varnames
         self.co_flags = code.co_flags
+        self._co_lines = list(code.co_lines()) if hasattr(code, 'co_lines') else []
+        if hasattr(code, 'co_kwonlyargcount'):
+            self.co_kwonlyargcount = code.co_kwonlyargcount
+
+    def co_lines(self):
+        return iter(self._co_lines)
 
 
 class FakeFrame(object):
@@ -152,7 +165,7 @@ class FakeFrame(object):
         if "self" in self.f_locals:
             self.f_locals["self"] = _convert_obj(frame.f_locals["self"])
 
-                    
+
 class FakeTraceback(object):
 
     def __init__(self, traceback):
@@ -232,34 +245,34 @@ def _convert(v):
         except:
             return _safe_repr(v)
     else:
-        from datetime import date, time, datetime, timedelta
-    
+        from datetime import date, datetime, time, timedelta
+
         if PY2:
             BUILTIN = (str, unicode, int, long, float, date, time, datetime, timedelta)
         else:
             BUILTIN = (str, int, float, date, time, datetime, timedelta)
         # XXX: what about bytes and bytearray?
-    
+
         if v is None:
             return v
-    
+
         if type(v) in BUILTIN:
             return v
-    
+
         if type(v) is tuple:
             return tuple(_convert_seq(v))
-    
+
         if type(v) is list:
             return list(_convert_seq(v))
-    
+
         if type(v) is set:
             return set(_convert_seq(v))
-    
+
         if type(v) is dict:
             return _convert_dict(v)
-    
+
         return _safe_repr(v)
-    
+
 
 def _cache_files(files):
     for name, data in files.items():
@@ -272,7 +285,7 @@ def main():
 
     parser = argparse.ArgumentParser(
         description="%s v%s: post-mortem debugging for Python programs"
-        % (sys.executable, __version__)
+                    % (sys.executable, __version__)
     )
     debugger_group = parser.add_mutually_exclusive_group(required=False)
     debugger_group.add_argument(
